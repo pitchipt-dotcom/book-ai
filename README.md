@@ -55,6 +55,8 @@ OCR出力は次の構造を想定します(パスは現状コード内の定数 
 
 ## 使い方(実行順)
 
+> **注意** パスが `/mnt/AI_Library/...` に固定されています。この場所に OCR 出力がない環境では、`search/build_index.py` は `FileNotFoundError` で終了します(クリーン環境で実測)。自分の環境に合わせて、各スクリプト内の定数を書き換えてください。
+
 1. **OCR**(OCR済みデータが無い場合のみ)
 
    ```bash
@@ -73,11 +75,17 @@ OCR出力は次の構造を想定します(パスは現状コード内の定数 
 
 `http://127.0.0.1:8721/` を開きます。待受アドレスは環境変数 `BOOK_SEARCH_HOST` で変更できます。
 
-**未検証の挙動**(実行して確認していません):
+### 実測済みの挙動
 
-- `books.json` / `index.json` が無い状態で `app.py` を起動した場合の挙動
-- `build_index.py` を省略して `build_library_db.py` → `app.py` だけで動くか(`app.py` は `books.json` のルートを持ちます)
-- 「`build_index.py` → `build_library_db.py` → `app.py`」の実行順で正しく動くか(スクリプトの記述からの推測)
+- `books.json` が無い状態で `/books.json` を要求すると、接続が切れる(クリーン環境で実測)。`/`、`/search`、`/books` は `books.json` が無くても応答する
+
+### 未検証の挙動
+
+(実行して確認していません)
+
+- `index.json` が無い状態の挙動(未確認)
+- `build_index.py` を省略して `build_library_db.py` → `app.py` だけで動くか
+- 「`build_index.py` → `build_library_db.py` → `app.py`」の実行順(実データ環境では未検証。スクリプトの記述からの推測)
 - Python 3.14.4 以外・SQLite FTS5 無効環境での動作
 
 > **注意** 認証・アクセス制御は未実装です。`0.0.0.0` 等で公開する場合は、リバースプロキシや VPN で必ずアクセス制限してください。

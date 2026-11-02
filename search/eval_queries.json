@@ -1,0 +1,77 @@
+{
+  "description": "BONSAIや埋め込みを使わず、現行の文字列部分一致検索を評価するための固定クエリセット。expected_conceptsは人手レビュー時の観点であり、自動採点用の正解ラベルではない。",
+  "queries": [
+    {
+      "id": "term_ankle_dorsiflexion",
+      "type": "single_term",
+      "query": "背屈",
+      "expected_concepts": ["足関節", "運動療法", "歩行"]
+    },
+    {
+      "id": "term_spasticity",
+      "type": "single_term",
+      "query": "痙縮",
+      "expected_concepts": ["脳卒中", "評価", "治療"]
+    },
+    {
+      "id": "multi_ankle_dorsiflexion",
+      "type": "multi_term_literal",
+      "query": "足関節 背屈",
+      "expected_concepts": ["足関節", "背屈"]
+    },
+    {
+      "id": "multi_stroke_gait",
+      "type": "multi_term_literal",
+      "query": "脳卒中 歩行",
+      "expected_concepts": ["脳卒中", "歩行"]
+    },
+    {
+      "id": "multi_shoulder_pain",
+      "type": "multi_term_literal",
+      "query": "肩関節 痛み",
+      "expected_concepts": ["肩関節", "疼痛"]
+    },
+    {
+      "id": "question_poststroke_ankle",
+      "type": "clinical_question",
+      "query": "脳卒中患者の足関節背屈を改善する運動療法は？",
+      "expected_concepts": ["脳卒中", "足関節", "背屈", "運動療法"]
+    },
+    {
+      "id": "question_spasticity",
+      "type": "clinical_question",
+      "query": "脳卒中後の下肢痙縮を評価する方法は？",
+      "expected_concepts": ["脳卒中", "下肢", "痙縮", "評価"]
+    },
+    {
+      "id": "question_rotator_cuff",
+      "type": "clinical_question",
+      "query": "五十肩で可動域制限がある患者への理学療法は？",
+      "expected_concepts": ["五十肩", "可動域", "理学療法"]
+    },
+    {
+      "id": "question_knee_oa",
+      "type": "clinical_question",
+      "query": "変形性膝関節症の保存療法で行う運動は？",
+      "expected_concepts": ["変形性膝関節症", "保存療法", "運動療法"]
+    },
+    {
+      "id": "question_fall_prevention",
+      "type": "clinical_question",
+      "query": "高齢者の転倒を予防するバランス練習を知りたい",
+      "expected_concepts": ["転倒", "バランス", "練習"]
+    },
+    {
+      "id": "question_pressure_injury",
+      "type": "clinical_question",
+      "query": "褥瘡予防のためのポジショニングのポイントは？",
+      "expected_concepts": ["褥瘡", "ポジショニング"]
+    },
+    {
+      "id": "question_swallowing_position",
+      "type": "clinical_question",
+      "query": "神経疾患患者が安全に食べるための姿勢は？",
+      "expected_concepts": ["神経疾患", "食べる", "姿勢", "ポジショニング"]
+    }
+  ]
+}

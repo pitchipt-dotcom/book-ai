@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>蔵書全文検索</title>
+<style>
+  :root{font-family:"Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{margin:0;background:#f4f5f7;color:#1f2933;font-size:16px;line-height:1.5}
+  .wrap{max-width:880px;margin:0 auto;padding:14px 12px 28px}
+  header{margin-bottom:14px}
+  h1{margin:0;font-size:24px;font-weight:700}
+  .stats{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+  .stat{background:#fff;border:1px solid #dfe4ea;border-radius:10px;padding:8px 12px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .stat .label{font-size:12px;color:#5f7085}
+  .stat .value{font-size:16px;font-weight:700;color:#1f2933}
+  .searchbar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .searchbar select{flex:0 0 170px;min-width:150px;padding:11px 10px;font-size:15px;border:1px solid #c7d3de;border-radius:10px;background:#fff;color:#1f2933}
+  .searchbar input[type=text]{flex:1;min-width:140px;padding:11px 12px;font-size:16px;border:1px solid #c7d3de;border-radius:10px;background:#fff;color:#1f2933}
+  .searchbar button.go{flex:0 0 auto;padding:11px 20px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:#2563eb;color:#fff;cursor:pointer;display:inline-block}
+  .searchbar button.go:active{background:#1d4ed8}
+  .searchbar button.clear{flex:0 0 auto;padding:11px 14px;font-size:18px;line-height:1;border:1px solid #c7d3de;border-radius:10px;background:#fff;color:#4b5563;cursor:pointer;display:none}
+  .searchbar button.clear:active{background:#f0f1f5}
+  .hint,.empty{text-align:center;color:#64748b;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px 14px;font-size:15px}
+  .hint{border-style:dashed}
+  .section-title{margin:16px 0 10px;font-size:15px;font-weight:700;color:#475569}
+  .summary{margin:0 0 12px;font-size:15px;color:#334155}
+  .summary b{color:#1f2933}
+  .card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(16,24,40,.06)}
+  .card + .card{margin-top:8px}
+  .book-list{list-style:none;margin:0 0 14px;padding:0}
+  .book-list li{margin-bottom:8px}
+  .book-list a{display:block;background:#fff;border:1px solid #dfe4ea;border-radius:10px;padding:12px 14px;font-size:16px;color:#1f2933;text-decoration:none;box-shadow:0 1px 2px rgba(16,24,40,.06);overflow-wrap:break-word;word-break:break-word}
+  .book-list a:active{background:#f1f5f9}
+  .book-title{margin:0;font-size:17px;font-weight:700;color:#0f172a}
+  .meta{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 10px;font-size:14px;color:#475569}
+  .meta span{background:#f1f5f9;border-radius:6px;padding:3px 8px}
+  .snippet{margin:0;font-size:15px;color:#334155;overflow-wrap:break-word;word-break:break-word}
+  .snippet mark{background:#fde68a;color:#000;border-radius:3px;padding:0 1px}
+  .pdf-link,.open-book-link{display:inline-block;margin-top:10px;font-size:15px;font-weight:700;color:#2563eb;text-decoration:none;padding:9px 14px;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff}
+  .pdf-link:active{background:#dbeafe}
+  .open-book-link{margin-left:8px;background:#e6f0ff;border-color:#b6d0fe}
+  .page-note{margin:-2px 0 12px;font-size:13px;color:#64748b}
+  .pager{display:flex;align-items:center;justify-content:center;gap:10px;margin:16px 0}.pager button{padding:9px 14px;font-size:15px;font-weight:700;border:1px solid #bfdbfe;border-radius:8px;background:#eff6ff;color:#2563eb;cursor:pointer}.pager button:disabled{opacity:.45;cursor:default}
+  @media (max-width:480px){.searchbar{flex-direction:column;align-items:stretch}.searchbar select{flex-basis:auto;width:100%}.searchbar input[type=text]{width:100%;min-width:0}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><h1>蔵書全文検索</h1></header>
+  <div class="stats" id="stats"></div>
+  <form class="searchbar" id="searchForm" autocomplete="off">
+    <select id="bookFilter" aria-label="書籍選択"></select>
+    <input type="text" id="q" name="q" placeholder="語句を入力して検索">
+    <button type="button" class="clear" id="clearBtn" aria-label="クリア">×</button>
+    <button type="submit" class="go">検索</button>
+  </form>
+  <section id="results" aria-live="polite"></section>
+</div>
+<script>
+(function () {
+  var BOOKS_URL = "/books";
+  var SEARCH_URL = "/search";
+  var RESULTS_PER_PAGE = 50;
+
+  function escHtml(s) {
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function escUrl(s) {
+    return encodeURIComponent(String(s));
+  }
+
+  function highlight(snip, query) {
+    var q = String(query).trim();
+    var s = String(snip);
+    if (!q) return escHtml(s);
+    var parts = s.split(q);
+    var out = escHtml(parts[0]);
+    for (var i = 1; i < parts.length; i++) {
+      out += "<mark>" + escHtml(q) + "</mark>" + escHtml(parts[i]);
+    }
+    return out;
+  }
+
+  function bookHref(b) {
+    return viewerHref(b.first_pdf_file || b.pdf_file || (b.parts && b.parts[0] && b.parts[0].pdf_file));
+  }
+
+  function viewerHref(pdfFile, page) {
+    var source = "/pdf/" + escUrl(pdfFile);
+    var href = "/viewer.html?file=" + escUrl(source);
+    if (page) href += "&page=" + escUrl(String(page));
+    return href;
+  }
+
+  function pageHref(p) {
+    return p.viewer_url || viewerHref(p.pdf_file, p.pdf_page);
+  }
+
+  var booksData = null;
+  var requestSeq = 0;
+  var currentOffset = 0;
+  var searchTimer = null;
+
+  function bookTitleFor(id) {
+    if (!booksData) return id;
+    for (var i = 0; i < booksData.length; i++) {
+      if (booksData[i].book_id === id) return booksData[i].title;
+    }
+    return id;
+  }
+
+  function buildFilter() {
+    var sel = document.getElementById("bookFilter");
+    sel.innerHTML = '<option value="">全書籍</option>';
+    for (var i = 0; i < booksData.length; i++) {
+      var o = document.createElement("option");
+      o.value = booksData[i].book_id;
+      o.textContent = booksData[i].title;
+      sel.appendChild(o);
+    }
+  }
+
+  function buildStats() {
+    var regCount = booksData ? booksData.length : 0;
+    document.getElementById("stats").innerHTML =
+      '<div class="stat"><div class="label">登録書籍</div><div class="value">' + regCount + '</div></div>';
+  }
+
+  function bookListItem(b) {
+    var suffix = b.part_count > 1 ? ' <small>（' + escHtml(String(b.part_count)) + '分割PDF）</small>' : '';
+    return '<li><a href="' + bookHref(b) + '" target="_blank" rel="noopener">' + escHtml(b.title) + suffix + '</a></li>';
+  }
+
+  function bookResults(items) {
+    var ul = '<ul class="book-list">';
+    for (var i = 0; i < items.length; i++) {
+      ul += bookListItem(items[i]);
+    }
+    ul += '</ul>';
+    return '<h2 class="section-title">書籍 (' + items.length + ' 件)</h2>' + ul;
+  }
+
+  function libraryList() {
+    var ul = '<ul class="book-list">';
+    for (var i = 0; i < booksData.length; i++) {
+      ul += bookListItem(booksData[i]);
+    }
+    ul += '</ul>';
+    return ul;
+  }
+
+  function card(p, q) {
+    var href = pageHref(p);
+    var openHref = bookHref(p);
+    return '<article class="card">' +
+      '<div class="book-title">' + escHtml(p.book_title) + '</div>' +
+      '<div class="meta">' +
+        '<span class="pdf-file">' + escHtml(p.pdf_file) + '</span>' +
+        '<span class="page">PDF p.' + escHtml(String(p.pdf_page)) + '（PDF内ページ）</span>' +
+        '<span class="page">書籍内 PDF p.' + escHtml(String(p.book_pdf_page)) + '</span>' +
+      '</div>' +
+      '<p class="snippet">' + highlight(p.snippet, q) + '</p>' +
+      '<a class="pdf-link" href="' + href + '">根拠の PDF p.' + escHtml(String(p.pdf_page)) + ' を開く</a>' +
+      '<a class="open-book-link" href="' + openHref + '">この書籍を開く</a>' +
+    '</article>';
+  }
+
+  function pager(data) {
+    if (data.count <= data.limit) return '';
+    var first = data.count ? data.offset + 1 : 0;
+    var last = data.offset + data.returned;
+    return '<nav class="pager" aria-label="検索結果ページ送り">' +
+      '<button type="button" id="prevPage"' + (data.offset === 0 ? ' disabled' : '') + '>前の ' + data.limit + ' 件</button>' +
+      '<span>' + first + '–' + last + ' / ' + data.count + ' 件</span>' +
+      '<button type="button" id="nextPage"' + (!data.has_more ? ' disabled' : '') + '>次の ' + data.limit + ' 件</button>' +
+    '</nav>';
+  }
+
+  function bindPager(data) {
+    var prev = document.getElementById('prevPage');
+    var next = document.getElementById('nextPage');
+    if (prev) prev.addEventListener('click', function () { currentOffset = Math.max(0, currentOffset - data.limit); search(false); });
+    if (next) next.addEventListener('click', function () { currentOffset += data.limit; search(false); });
+  }
+
+  function search(resetOffset) {
+    if (resetOffset !== false) currentOffset = 0;
+    var q = String(document.getElementById("q").value).trim();
+    var selId = document.getElementById("bookFilter").value;
+    var resultsEl = document.getElementById("results");
+    var clearBtn = document.getElementById("clearBtn");
+    clearBtn.style.display = q ? "inline-block" : "none";
+    var qHtml = escHtml(q);
+
+    if (!q) {
+      resultsEl.innerHTML = libraryList();
+      return;
+    }
+
+    var seq = ++requestSeq;
+    var url = SEARCH_URL + "?q=" + encodeURIComponent(q) + "&offset=" + currentOffset + "&limit=" + RESULTS_PER_PAGE;
+    if (selId) url += "&book_id=" + encodeURIComponent(selId);
+
+    fetch(url)
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (data) {
+        if (seq !== requestSeq) return;
+        var scope = selId ? '（' + bookTitleFor(selId) + '）' : '';
+
+        var bookMatches = [];
+        var qLower = q.toLowerCase();
+        for (var i = 0; i < booksData.length; i++) {
+          if (booksData[i].title.toLowerCase().indexOf(qLower) >= 0) {
+            bookMatches.push(booksData[i]);
+          }
+        }
+
+        var html = bookMatches.length ? bookResults(bookMatches) : "";
+        var summary = '<p class="summary">「' + qHtml + '」の全文検索結果：<b>' + data.count + '件</b>' + (scope ? ' ' + scope : '') + '</p>';
+        html += summary;
+        if (data.count === 0) {
+          html += '<p class="empty">「' + qHtml + '」の本文ヒットはありませんでした。</p>';
+        } else {
+          html += '<p class="page-note">PDF内ページは分割ファイル内の位置、書籍内PDFページは分割PDFを連結した位置です。印刷された書籍ページ番号はOCRから推定していません。</p>';
+          for (var m = 0; m < data.results.length; m++) {
+            html += card(data.results[m], q);
+          }
+          html += pager(data);
+        }
+        resultsEl.innerHTML = html;
+        bindPager(data);
+      })
+      .catch(function () {
+        if (seq !== requestSeq) return;
+        resultsEl.innerHTML = '<p class="empty">検索に失敗しました。稍後再試してください。</p>';
+      });
+  }
+
+  function scheduleSearch() {
+    if (searchTimer) window.clearTimeout(searchTimer);
+    searchTimer = window.setTimeout(function () { search(true); }, 250);
+  }
+
+  function init() {
+    fetch(BOOKS_URL)
+      .then(function (r) {
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        booksData = Array.isArray(d) ? d : d.books;
+        buildFilter();
+        buildStats();
+        document.getElementById("results").innerHTML = libraryList();
+        document.getElementById("q").addEventListener("input", scheduleSearch);
+        document.getElementById("bookFilter").addEventListener("change", function () { search(true); });
+        document.getElementById("clearBtn").addEventListener("click", function () {
+          document.getElementById("q").value = "";
+          search(true);
+        });
+        document.getElementById("searchForm").addEventListener("submit", function (e) {
+          e.preventDefault();
+          search(true);
+        });
+      })
+      .catch(function () {
+        document.getElementById("results").innerHTML =
+          '<p class="empty">検索データの読み込みに失敗しました。</p>';
+      });
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>

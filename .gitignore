@@ -1,0 +1,23 @@
+# ---- 著作物・派生データ(公開禁止) ----
+*.pdf
+ocr/
+ocr_tmp/
+ocr_compare/
+ocr_diagnostics/
+books.json
+search/index.json
+search/*.sqlite
+search/eval_results.json
+search/eval_results.md
+
+# ---- ログ・個人環境・内部運用メモ ----
+*.log
+.aider*
+opencode.json
+STATUS.md
+CLAUDE.md
+AGENTS.md
+
+# ---- 生成物 ----
+__pycache__/
+*.pyc

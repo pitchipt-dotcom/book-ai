@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>根拠PDFビューア</title>
+<style>
+  :root{font-family:"Hiragino Kaku Gothic ProN","Meiryo","Yu Gothic",sans-serif;color:#1f2933;background:#e5e7eb}
+  *{box-sizing:border-box} body{margin:0}.bar{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;padding:9px;background:#fff;border-bottom:1px solid #cbd5e1;box-shadow:0 1px 3px #0002}.bar button,.bar a{padding:8px 10px;border:1px solid #94a3b8;border-radius:7px;background:#fff;color:#1e40af;font:inherit;text-decoration:none}.bar button:disabled{opacity:.45}.status{margin-left:auto;font-size:14px;color:#475569}.wrap{padding:12px;text-align:center}.error{max-width:640px;margin:24px auto;padding:16px;background:#fff3cd;color:#7c2d12;border-radius:10px;text-align:left}.error a{color:#1d4ed8}canvas{max-width:100%;height:auto;background:#fff;box-shadow:0 2px 10px #0004}
+</style>
+</head>
+<body>
+<nav class="bar" aria-label="PDF操作">
+  <button id="prev" type="button">前へ</button><button id="next" type="button">次へ</button>
+  <span id="page">読み込み中…</span><a id="original" target="_blank" rel="noopener">原本PDFを直接開く</a>
+  <span class="status" id="status"></span>
+</nav>
+<main class="wrap" id="main"><canvas id="canvas"></canvas></main>
+<script type="module">
+import * as pdfjsLib from "/pdfjs/pdf.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdfjs/pdf.worker.mjs";
+const params = new URLSearchParams(location.search);
+const file = params.get("file");
+const startPage = Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1);
+const canvas = document.getElementById("canvas"), context = canvas.getContext("2d");
+const pageLabel = document.getElementById("page"), status = document.getElementById("status");
+const prev = document.getElementById("prev"), next = document.getElementById("next");
+const original = document.getElementById("original"), main = document.getElementById("main");
+let documentProxy, pageNumber = startPage, rendering = false;
+function fail(message) { main.innerHTML = '<div class="error">' + message + '<br><a href="' + (file || '#') + '">原本PDFを直接開く</a></div>'; status.textContent = '表示できませんでした'; }
+async function render() {
+  if (!documentProxy || rendering) return;
+  rendering = true; status.textContent = '描画中…';
+  try {
+    const pdfPage = await documentProxy.getPage(pageNumber);
+    const base = pdfPage.getViewport({scale:1});
+    const available = Math.max(280, window.innerWidth - 24);
+    const scale = Math.min(2.2, available / base.width);
+    const viewport = pdfPage.getViewport({scale:scale * window.devicePixelRatio});
+    canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+    canvas.style.width = Math.ceil(viewport.width / window.devicePixelRatio) + 'px';
+    canvas.style.height = Math.ceil(viewport.height / window.devicePixelRatio) + 'px';
+    await pdfPage.render({canvasContext:context, viewport:viewport}).promise;
+    pageLabel.textContent = pageNumber + ' / ' + documentProxy.numPages;
+    prev.disabled = pageNumber <= 1; next.disabled = pageNumber >= documentProxy.numPages;
+    status.textContent = '';
+    history.replaceState(null, '', '?file=' + encodeURIComponent(file) + '&page=' + pageNumber);
+  } catch (error) { fail('PDFページを描画できませんでした。'); console.error(error); }
+  rendering = false;
+}
+prev.onclick = () => { if (pageNumber > 1) { pageNumber--; render(); } };
+next.onclick = () => { if (documentProxy && pageNumber < documentProxy.numPages) { pageNumber++; render(); } };
+if (!file || !file.startsWith('/pdf/')) { fail('PDFの指定が不正です。'); }
+else {
+  original.href = file;
+  try {
+    documentProxy = await pdfjsLib.getDocument({url:file, disableRange:false, disableStream:false, disableAutoFetch:false}).promise;
+    pageNumber = Math.min(startPage, documentProxy.numPages); await render();
+  } catch (error) { fail('PDFを読み込めませんでした。ネットワークを確認してください。'); console.error(error); }
+}
+</script>
+</body>
+</html>
